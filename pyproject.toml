@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "litmus-mcp"
+version = "0.1.0"
+description = "MCP server for Litmus experiment intake, validation, and lab routing"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Litmus Science" }
+]
+keywords = ["mcp", "model-context-protocol", "litmus", "laboratory", "experiments"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "mcp>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.scripts]
+litmus-mcp = "litmus_mcp.server:run"
+
+[project.urls]
+Homepage = "https://github.com/litmus-science/litmus-mcp"
+Documentation = "https://docs.litmus.science"
+Repository = "https://github.com/litmus-science/litmus-mcp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/litmus_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/schemas",
+    "/examples",
+]
