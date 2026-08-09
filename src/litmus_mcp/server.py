@@ -14,6 +14,9 @@ Tools:
 - intake.submit: Submit an intake
 - files.create_upload_url: Create signed upload URL
 - files.attach_to_intake: Attach file to intake
+- litmus_get_cro_match: Find candidate labs via the live backend (POST /labs/matches)
+- litmus_calculate_estimate: Get a cost/turnaround estimate via the live backend (POST /estimate)
+- litmus_create_order: Submit an order request via the live backend (POST /order-requests)
 
 Resources:
 - litmus://schemas/experiment_intake
@@ -34,6 +37,7 @@ from mcp.types import (
     TextContent,
 )
 
+from .backend_client import call_backend
 from .router import (
     route_intake,
     validate_intake,
@@ -291,6 +295,63 @@ async def list_tools() -> list[Tool]:
                 },
             },
         ),
+        Tool(
+            name="litmus_get_cro_match",
+            description=(
+                "Find candidate labs/CROs for an assay by calling the live litmus-project "
+                "backend's lab directory. NOTE: this is a first-pass backend endpoint — "
+                "server-side filtering by assay_type/criteria is not yet implemented, so "
+                "this returns every lab currently in the network unconditionally, "
+                "unranked and unfiltered. Do not present results as matched or ranked; "
+                "treat them as the full lab directory. For local scoring against mock "
+                "lab data with real filtering/ranking, use routing.match_labs instead."
+            ),
+            inputSchema={
+                "type": "object",
+                "required": ["assay_type"],
+                "properties": {
+                    "assay_type": {"type": "string"},
+                    "criteria": {"type": "object"},
+                },
+            },
+        ),
+        Tool(
+            name="litmus_calculate_estimate",
+            description=(
+                "Get a cost and turnaround-time estimate for an experiment spec by calling "
+                "the live litmus-project backend (POST /estimate). Requires the "
+                "LITMUS_API_KEY environment variable to be configured on this MCP server; "
+                "the estimate does not create or persist anything. The intake object uses "
+                "the same shape as intake.validate/routing.match_labs (see the "
+                "litmus://schemas/experiment_intake resource)."
+            ),
+            inputSchema={
+                "type": "object",
+                "required": ["intake"],
+                "properties": {
+                    "intake": {"type": "object"},
+                },
+            },
+        ),
+        Tool(
+            name="litmus_create_order",
+            description=(
+                "Submit an order request to the live litmus-project backend "
+                "(POST /order-requests). Requires LITMUS_API_KEY to be configured; the "
+                "submitter identity is derived server-side from the authenticated account "
+                "and cannot be set via arguments. The raw_payload is stored verbatim — "
+                "pass the same intake/order object shape used by intake.submit and "
+                "litmus_calculate_estimate. This creates a real, persisted order and may "
+                "trigger downstream notification/PDF generation on the backend."
+            ),
+            inputSchema={
+                "type": "object",
+                "required": ["raw_payload"],
+                "properties": {
+                    "raw_payload": {"type": "object"},
+                },
+            },
+        ),
     ]
 
 
@@ -316,6 +377,12 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         return await handle_create_upload_url(arguments)
     elif name == "files.attach_to_intake":
         return await handle_attach_to_intake(arguments)
+    elif name == "litmus_get_cro_match":
+        return await handle_get_cro_match(arguments)
+    elif name == "litmus_calculate_estimate":
+        return await handle_calculate_estimate(arguments)
+    elif name == "litmus_create_order":
+        return await handle_create_order(arguments)
     else:
         raise ValueError(f"Unknown tool: {name}")
 
@@ -728,6 +795,53 @@ async def handle_attach_to_intake(args: dict) -> list[TextContent]:
     })
 
     return [TextContent(type="text", text=json.dumps({"ok": True}))]
+
+
+# ============================================================================
+# Live Backend Tool Handlers
+#
+# Unlike every handler above, these call the real litmus-project backend over
+# HTTP via backend_client.call_backend rather than operating on local data.
+# ============================================================================
+
+async def handle_get_cro_match(args: dict) -> list[TextContent]:
+    """Find candidate labs via the live backend's POST /labs/matches (public,
+    unauthenticated). This backend endpoint is a first-pass stub: it returns
+    every lab in the network unconditionally, ignoring assay_type/criteria."""
+    body = {"assay_type": args["assay_type"]}
+    if args.get("criteria") is not None:
+        body["criteria"] = args["criteria"]
+
+    result = await call_backend("POST", "/labs/matches", json_body=body, require_api_key=False)
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+async def handle_calculate_estimate(args: dict) -> list[TextContent]:
+    """Get a cost/turnaround estimate from the live backend's POST /estimate
+    (authenticated via LITMUS_API_KEY)."""
+    intake = args["intake"]
+    if "experiment_type" not in intake:
+        return [TextContent(type="text", text=json.dumps({
+            "error": "intake.experiment_type is required",
+            "error_type": "invalid_input",
+        }))]
+
+    result = await call_backend("POST", "/estimate", json_body=intake, require_api_key=True)
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+async def handle_create_order(args: dict) -> list[TextContent]:
+    """Submit an order request to the live backend's POST /order-requests
+    (authenticated via LITMUS_API_KEY). Submitter identity is derived
+    server-side from the account the API key belongs to."""
+    raw_payload = args["raw_payload"]
+
+    result = await call_backend(
+        "POST", "/order-requests",
+        json_body={"raw_payload": raw_payload},
+        require_api_key=True,
+    )
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
 
 # ============================================================================
