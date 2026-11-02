@@ -25,7 +25,11 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "mcp>=1.0.0",
+    # <2.0.0: this server is written against the 1.x low-level Server API
+    # (@server.list_tools()/@server.call_tool() decorators). mcp 2.0.0
+    # replaced that with a different Server class entirely, which breaks
+    # this code at import time.
+    "mcp>=1.0.0,<2.0.0",
 ]
 
 [project.optional-dependencies]

@@ -1,6 +1,6 @@
-# Litmus MCP Server
+# Litmus Science MCP Server
 
-Model Context Protocol (MCP) server for Litmus experiment intake, validation, routing, and submission.
+Model Context Protocol (MCP) server for [Litmus Science](https://litmus.science) experiment intake, validation, routing, and submission.
 
 ## Overview
 
@@ -12,11 +12,21 @@ This MCP server allows AI assistants (Claude, ChatGPT, etc.) to:
 
 ## Installation
 
+Requires Python 3.10 or newer. The package is not on PyPI yet, so install it from GitHub.
+
+**Run it without installing** (recommended, needs [uv](https://docs.astral.sh/uv/)):
+
 ```bash
-pip install litmus-mcp
+uvx --from git+https://github.com/litmus-science/litmus-mcp.git litmus-mcp
 ```
 
-Or install from source:
+**Or install with pip:**
+
+```bash
+pip install "git+https://github.com/litmus-science/litmus-mcp.git"
+```
+
+**Or install from source:**
 
 ```bash
 git clone https://github.com/litmus-science/litmus-mcp.git
@@ -40,7 +50,22 @@ python -m litmus_mcp.server
 
 ### Claude Desktop
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS).
+
+With uv (no install needed):
+
+```json
+{
+  "mcpServers": {
+    "litmus": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/litmus-science/litmus-mcp.git", "litmus-mcp"]
+    }
+  }
+}
+```
+
+If you installed with pip:
 
 ```json
 {
@@ -54,7 +79,11 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ### Claude Code
 
-Add to your Claude Code MCP settings:
+```bash
+claude mcp add litmus -- uvx --from git+https://github.com/litmus-science/litmus-mcp.git litmus-mcp
+```
+
+Or, if you installed with pip, add to your Claude Code MCP settings:
 
 ```json
 {
