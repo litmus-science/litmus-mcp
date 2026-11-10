@@ -25,7 +25,11 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "mcp>=1.0.0",
+    # <2.0.0: this server is written against the 1.x low-level Server API
+    # (@server.list_tools()/@server.call_tool() decorators). mcp 2.0.0
+    # replaced that with a different Server class entirely, which breaks
+    # this code at import time.
+    "mcp>=1.0.0,<2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -39,7 +43,7 @@ litmus-mcp = "litmus_mcp.server:run"
 
 [project.urls]
 Homepage = "https://github.com/litmus-science/litmus-mcp"
-Documentation = "https://docs.litmus.science"
+Documentation = "https://platform.litmus.science/docs/mcp"
 Repository = "https://github.com/litmus-science/litmus-mcp"
 
 [tool.hatch.build.targets.wheel]
