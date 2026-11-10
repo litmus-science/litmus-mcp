@@ -43,7 +43,7 @@ litmus-mcp = "litmus_mcp.server:run"
 
 [project.urls]
 Homepage = "https://github.com/litmus-science/litmus-mcp"
-Documentation = "https://docs.litmus.science"
+Documentation = "https://platform.litmus.science/docs/mcp"
 Repository = "https://github.com/litmus-science/litmus-mcp"
 
 [tool.hatch.build.targets.wheel]

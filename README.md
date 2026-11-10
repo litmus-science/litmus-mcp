@@ -1,220 +1,91 @@
 # Litmus Science MCP Server
 
-Model Context Protocol (MCP) server for [Litmus Science](https://litmus.science) experiment intake, validation, routing, and submission.
+Order real lab experiments from Claude, ChatGPT, Cursor, or any MCP client. Describe what you want to find out in plain language; [Litmus Science](https://litmus.science) matches it to the assays it offers, collects what a lab needs, and routes the request to vetted CROs, cloud labs, and university core facilities for quotes.
 
-## Overview
+> Litmus Science (litmus.science) is not affiliated with Litmus (litmus.com), the email testing company.
 
-This MCP server allows AI assistants (Claude, ChatGPT, etc.) to:
-- Draft experiment intakes from natural language
-- Validate intakes against the schema
-- Route experiments to best-fit labs
-- Submit experiments and manage attachments
+**Docs:** [platform.litmus.science/docs/mcp](https://platform.litmus.science/docs/mcp): server URL, sign-in, tools, and worked examples.
 
-## Installation
+## What you can do with it
 
-Requires Python 3.10 or newer. The package is not on PyPI yet, so install it from GitHub.
+- **Outsource an assay without a wet lab:** binding (SPR / BLI), ITC, thermal shift, biochemical HTS, ELISA, qPCR, cell viability, cell-based potency, ADME / Tox, and more.
+- **Validate AI-designed binders:** VHH / nanobodies, minibinders, and peptides, with binder calls and affinity per design.
+- **Give an AI agent or co-scientist a wet lab:** the agent drafts the request, fills in requirements with you, and submits it.
+- **Get quotes from multiple labs with one request:** one contract and one invoice across labs.
 
-**Run it without installing** (recommended, needs [uv](https://docs.astral.sh/uv/)):
+Example prompts:
 
-```bash
-uvx --from git+https://github.com/litmus-science/litmus-mcp.git litmus-mcp
+```
+Get SPR kinetics run on 12 VHH designs against my target. I have purified protein.
+Find a CRO to measure microsomal stability and CYP inhibition for 8 compounds.
+I designed 96 minibinders. How do I validate which ones actually bind?
 ```
 
-**Or install with pip:**
+## Connect
 
-```bash
-pip install "git+https://github.com/litmus-science/litmus-mcp.git"
-```
+Litmus runs a hosted MCP server: connect over Streamable HTTP and sign in to Litmus with OAuth. You choose which tools the client may use.
 
-**Or install from source:**
+Setup, the server URL, authentication, and consent are covered in the [MCP integration guide](https://platform.litmus.science/docs/mcp):
 
-```bash
-git clone https://github.com/litmus-science/litmus-mcp.git
-cd litmus-mcp
-pip install -e .
-```
-
-## Running the Server
-
-```bash
-litmus-mcp
-```
-
-Or run as a module:
-
-```bash
-python -m litmus_mcp.server
-```
-
-## Configuration
-
-### Claude Desktop
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS).
-
-With uv (no install needed):
-
-```json
-{
-  "mcpServers": {
-    "litmus": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/litmus-science/litmus-mcp.git", "litmus-mcp"]
-    }
-  }
-}
-```
-
-If you installed with pip:
-
-```json
-{
-  "mcpServers": {
-    "litmus": {
-      "command": "litmus-mcp"
-    }
-  }
-}
-```
-
-### Claude Code
-
-```bash
-claude mcp add litmus -- uvx --from git+https://github.com/litmus-science/litmus-mcp.git litmus-mcp
-```
-
-Or, if you installed with pip, add to your Claude Code MCP settings:
-
-```json
-{
-  "mcpServers": {
-    "litmus": {
-      "command": "litmus-mcp"
-    }
-  }
-}
-```
+- [Overview](https://platform.litmus.science/docs/mcp)
+- [Authentication](https://platform.litmus.science/docs/mcp/authentication)
+- [MCP server](https://platform.litmus.science/docs/mcp/server): calling the server, tool reference, order request lifecycle
+- [Consent and permissions](https://platform.litmus.science/docs/mcp/consent-and-permissions)
 
 ## Tools
 
-### intake.draft_from_text
-Convert natural language to a structured intake JSON.
+| Tool | What it does |
+| --- | --- |
+| `create_order_request` | Start a draft order request from a scientific objective in your own words, plus any context (molecule, material in hand, timelines, prior results). Litmus suggests the assays the objective needs, each with its purpose and typical market pricing. |
+| `update_order_request` | Confirm which suggested assays to keep, then supply answers to anything still missing (requirements, lab location, budget, turnaround). Returns what's still needed until the request is `submittable`. |
+| `submit_order_request` | Submit a `submittable` order request for lab matching and quotes. |
+| `get_order_request` | Read an order request's current state by its `order_request_id`, to resume it later. |
+| `whoami` | Show which Litmus user and integration the connection belongs to, and its scopes. |
 
-```json
-{
-  "text": "I want to test if my new compound kills cancer cells",
-  "experiment_type_hint": "CELL_VIABILITY_IC50"
-}
-```
+### Typical flow
 
-### intake.validate
-Validate an intake against the schema.
+1. `create_order_request` with the objective → Litmus suggests assays.
+2. You pick the assays to keep → `update_order_request` with `confirm_assays`.
+3. Answer each item in `readiness.missing` → `update_order_request` until status is `submittable`.
+4. Review the summary and `submit_order_request`.
 
-```json
-{
-  "intake": { ... },
-  "strict": false
-}
-```
+## What happens after you submit
 
-### intake.suggest_questions
-Get questions to improve intake completeness.
+You get a copy of the request by email. Litmus reviews it and asks labs that can run it for quotes, and emails you when the first quote arrives. On the order request's page you compare quotes, pick a lab, and sign the standard agreements so the work can start. Suggested assay pricing is a market estimate, not a quote.
 
-```json
-{
-  "intake": { ... },
-  "target_completeness": 0.7,
-  "max_questions": 3
-}
-```
+## Pricing
 
-### routing.match_labs
-Route an intake to best-fit labs.
+See [litmus.science/pricing](https://litmus.science/pricing/). Arrayed binding has published, volume-based pricing; custom experiments are the lab's quote plus a Litmus fee, shown before you commit.
 
-```json
-{
-  "intake": { ... },
-  "top_k": 3,
-  "strict_deliverables": false,
-  "region_preference": "US"
-}
-```
+## Data and IP
 
-### labs.search
-Search labs with filters.
+Protocols, results, and IP belong to you by default. Litmus does not sell research data. See the [privacy policy](https://litmus.science/privacy.html).
 
-```json
-{
-  "experiment_type": "CELL_VIABILITY_IC50",
-  "max_bsl": "BSL2",
-  "region": "US"
-}
-```
+## Links
 
-### labs.get
-Get a specific lab profile.
+- Website: https://litmus.science
+- Assay catalog: https://litmus.science/assays/
+- Walkthrough: [How to give your AI agent a wet lab](https://litmus.science/blog/give-your-ai-agent-a-wet-lab.html)
+- Start a request on the web: https://platform.litmus.science/intake
+- Contact: hello@litmus.science
 
-```json
-{
-  "lab_id": "lab_cellassay_pro_001"
-}
-```
+## Self-hosted server (legacy)
 
-### intake.submit
-Submit a validated intake.
-
-```json
-{
-  "intake": { ... },
-  "selected_lab_id": "lab_cellassay_pro_001"
-}
-```
-
-### files.create_upload_url
-Create a signed URL for file upload.
-
-```json
-{
-  "filename": "compound_sds.pdf",
-  "mime_type": "application/pdf",
-  "size_bytes": 102400
-}
-```
-
-### files.attach_to_intake
-Attach an uploaded file to a submission.
-
-```json
-{
-  "submission_id": "sub_abc123",
-  "file_id": "file_xyz789",
-  "attachment_type": "SDS"
-}
-```
-
-## Resources
-
-The server exposes these resources:
-
-- `litmus://schemas/experiment_intake` - Experiment intake JSON Schema
-- `litmus://schemas/lab_profile` - Lab profile JSON Schema
-- `litmus://taxonomy/deliverables` - Deliverables taxonomy
-- `litmus://rubric/routing_weights` - Current routing weights
-
-## Development
+This repository also contains an earlier, locally run MCP server (`intake.*`, `routing.*`, `labs.*`, `files.*` tools) that works against the experiment intake schema. It is kept for reference and development; use the hosted server above to place real orders.
 
 ```bash
-# Clone the repo
+uvx --from git+https://github.com/litmus-science/litmus-mcp.git litmus-mcp
+# or
+pip install "git+https://github.com/litmus-science/litmus-mcp.git" && litmus-mcp
+```
+
+Development:
+
+```bash
 git clone https://github.com/litmus-science/litmus-mcp.git
 cd litmus-mcp
-
-# Install dev dependencies
 pip install -e ".[dev]"
-
-# Run tests
 pytest
-
-# Test with MCP Inspector
 npx @modelcontextprotocol/inspector litmus-mcp
 ```
 
